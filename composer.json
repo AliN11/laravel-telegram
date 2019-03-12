@@ -1,0 +1,25 @@
+{
+  "name": "alin11/laravel-telegram",
+  "description": "Simple and fast Telegram bot API for Laravel",
+  "keywords": [
+    "telegram",
+    "telegram bot"
+  ],
+  "homepage": "https://github.com/AliN11/Laravel-Telegram",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Ali Nazari",
+      "email": "anap1899@gmail.com"
+    }
+  ],
+  "require": {
+    "php": "^7.0",
+    "ixudra/curl": "^6.16"
+  },
+  "autoload": {
+    "psr-4": {
+      "AliN11\\Telegram\\": "src/"
+    }
+  }
+}
