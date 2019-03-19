@@ -5,7 +5,7 @@ use CURLFile;
 use Ixudra\Curl\CurlService;
 use AliN11\Telegram\Keyboard;
 
-class Response
+class Response extends Telegram
 {
 
 
@@ -77,12 +77,6 @@ class Response
     protected $remoteFile = null;
 
     protected $replyMarkup = null;
-    /**
-     * Curl package
-     *  @package ixudra/curl
-     * @var object
-     */
-    private $curl;
 
 
     /**
@@ -145,9 +139,7 @@ class Response
      */
     private function sendResponse(string $method, string $parameter)
     {
-        $result = $this->curl
-                ->to($this->basePath() . '/' . $method)
-                ->withProxy('127.0.0.1', 8580);
+        $result = $this->curl($this->basePath() . '/' . $method);
 
         if ($this->localFile) {
             $this->photo = null;

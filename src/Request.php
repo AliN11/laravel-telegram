@@ -3,14 +3,10 @@ namespace AliN11\Telegram;
 
 use Ixudra\Curl\CurlService;
 
-class Request
+class Request extends Telegram
 {
-
-    const TELEGRAM_BOT_API_URL = 'https://api.telegram.org/bot';
-
+    public $messageBody;
     public $rawRequest;
-
-    private $curl;
 
     private $validRequestTypes = [
         'text',
@@ -21,104 +17,128 @@ class Request
         'sticker',
         'voice',
         'audio',
+        'inline_query',
+        'callback_query',
+        'chosen_inline_result'
     ];
 
-    public function __construct()
+    public function getUpdates()
     {
-        $this->curl = new CurlService();
-    }
+        $request = $this->curl(self::TELEGRAM_BOT_API_URL . $this->token . '/getUpdates')->get();
 
-    public function getUpdates(string $token = null)
-    {
-        /* $request = $this->curl
-            ->to(self::TELEGRAM_BOT_API_URL . $token . '/getUpdates')
-            ->withProxy('127.0.0.1', 8580)
-            ->get(); */
-        $request = file_get_contents('request.json');
         $this->parseRequest($request);
 
-        print_r($this);
-
+        return $this;
     }
 
     private function parseRequest($request)
     {
         $request = end(json_decode($request)->result);
 
-        $this->rawRequest = $request;
-        $this->type = $this->type($request);
-        $this->text = $this->text($request);
-        $this->from = $this->from($request);
+        $this->rawRequest  = $request;
+        $this->messageBody = $this->messageBody();
+        $this->type        = $this->type();
+        $this->text        = $this->text();
+        $this->from        = $this->from();
     }
 
 
-    public function type($request = null)
+    public function messageBody()
     {
-        $request = is_null($request) ? $this->rawRequest : $request;
+        $request = $this->rawRequest;
 
-        foreach ($this->validRequestTypes as $type_id => $type) {
-            if (isset($request->message)) {
-                if (array_key_exists($type, $request->message)) {
-                    return $type;
-                }
-            }
+        if ($this->isChannelPost()) {
+            return $request->channel_post;
+        } else if($this->isCallbackQuery()) {
+            return $request->callback_query;
+        } else if($this->isInlineQuery()) {
+            return $request->inline_query;
+        } else {
+            return $request->message;
         }
+    }
 
-        if ($this->isCallbackQuery($request)) {
-            return 'callback_query';
-        } else if($this->isInlineQuery($request)) {
-            return 'inline_query';
-        } else if(isset($request->chosen_inline_result)) {
-            return 'chosen_inline_result';
+    public function type()
+    {
+        foreach ($this->validRequestTypes as $type) {
+            if (isset($this->messageBody->{$type}) || isset($this->rawRequest->{$type})) {
+                return $type;
+            }
         }
     }
 
 
     public function text($request = null)
     {
-        $request = is_null($request) ? $this->rawRequest : $request;
-        $messageType = $this->type($request);
+        $messageBody = $this->messageBody;
+        $text = '';
 
-        if ($messageType == 'text') {
-            return $request->message->text;
-        } else if (in_array($messageType, $this->validRequestTypes)) {
-            if (!empty($request->message->caption)) {
-                return $request->message->caption;
-            }
-        } else if($this->isCallbackQuery($request)) {
-            return $request->callback_query->data;
-        } else if($this->isInlineQuery($request)) {
-            return $request->inline_query->query;
+        if (isset($messageBody->text)) {
+            $text = $messageBody->text;
+        } else if (isset($messageBody->caption)) {
+            $text = $messageBody->caption;
+        } else if($this->isCallbackQuery()) {
+            $text = $messageBody->data;
+        } else if($this->isInlineQuery()) {
+            $text = $messageBody->query;
+        }
+
+        return $this->validateText($text);
+    }
+
+    public function from()
+    {
+        return isset($this->messageBody->chat)
+            ? $this->messageBody->chat
+            : $this->messageBody->from;
+    }
+
+    public function isInlineQuery()
+    {
+        return isset($this->rawRequest->inline_query);
+    }
+
+    public function isCallbackQuery()
+    {
+        return isset($this->rawRequest->callback_query);
+    }
+
+    public function isChannelPost()
+    {
+        return isset($this->rawRequest->channel_post);
+    }
+
+    public function photos()
+    {
+        if ($this->type == 'photo') {
+            return $this->messageBody->photo;
         }
     }
 
-    public function from($request = null)
+    public function isPrivateMessage()
     {
-        $request = is_null($request) ? $this->rawRequest : $request;
+        return $this->from->type === 'private';
+    }
 
-        if ($this->isInlineQuery($request)) {
-            return $request->inline_query->from;
-        } else if ($this->isCallbackQuery($request)) {
-            return $request->callback_query->from;
+    public function validateText($text)
+    {
+        if (substr($text, 0, 1) == '/') {
+            $text = substr($text, 1);
         }
-
-        return $request->message->from;
+        if (substr($text, 0, 6) == 'start ') {
+            $text = substr($text, 6);
+        }
+        // return convert_numbers($text);
+        return $text;
     }
 
-
-
-    private function isInlineQuery($request = null)
+    public function isForwardedMessage()
     {
-        $request = is_null($request) ? $this->rawRequest : $request;
-
-        return isset($request->inline_query);
+        return !empty($this->messageBody->forward_from_chat);
     }
 
-
-    private function isCallbackQuery($request = null)
+    public function forwardedMessageInfo()
     {
-        $request = is_null($request) ? $this->rawRequest : $request;
-
-        return isset($request->callback_query);
+        return $this->isForwardedMessage() ? $this->messageBody->forward_from_chat : null;
     }
 }
