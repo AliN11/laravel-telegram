@@ -24,7 +24,7 @@ class Telegram
 
     public function curl($to)
     {
-        return $this->curl->to($to)->withProxy('127.0.0.1', '9090', 7);
+        return $this->curl->to($to); // ->withProxy('127.0.0.1', '9090', 7);
     }
 
     public function setToken(string $token)
